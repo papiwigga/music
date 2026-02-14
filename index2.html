@@ -3,132 +3,172 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Private Demo</title>
-
+<title>Player Final Ultra PRO</title>
 <style>
-*{
-  margin:0;
-  padding:0;
-  box-sizing:border-box;
-  font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;
-}
-
-body{
-  background:#000;
-  color:#fff;
-  display:flex;
-  justify-content:center;
-  padding:60px 20px;
-}
-
-.container{
-  width:100%;
-  max-width:420px;
-}
-
-.cover{
-  width:100%;
-  aspect-ratio:1;
-  object-fit:cover;
-  margin-bottom:40px;
-}
-
-h1{
-  font-size:20px;
-  font-weight:500;
-  margin-bottom:6px;
-}
-
-h2{
-  font-size:13px;
-  font-weight:400;
-  color:#777;
-  margin-bottom:35px;
-}
-
-.track{
-  display:flex;
-  justify-content:space-between;
-  padding:16px 0;
-  border-bottom:1px solid #111;
-  cursor:pointer;
-  font-size:14px;
-  transition:0.2s ease;
-}
-
-.track:hover{
-  opacity:0.6;
-}
-
-.track.active{
-  color:#999;
-}
-
-.player{
-  margin-top:50px;
-}
-
-.controls{
-  display:flex;
-  justify-content:center;
-  gap:50px;
-  font-size:18px;
-  cursor:pointer;
-}
-
-.progress-container{
-  width:100%;
-  height:1px;
-  background:#222;
-  margin:25px 0;
-  cursor:pointer;
-}
-
-.progress{
-  height:100%;
-  width:0%;
-  background:#fff;
-}
-
-.time{
-  display:flex;
-  justify-content:space-between;
-  font-size:11px;
-  color:#555;
-}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;background:#111;color:#fff;overflow-x:hidden;}
+.container{max-width:900px;margin:50px auto;padding:0 20px;}
+.album-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:20px;}
+.album{cursor:pointer;border-radius:12px;overflow:hidden;position:relative;transition:transform 0.3s ease,box-shadow 0.3s ease;}
+.album img{width:100%;display:block;border-radius:12px;transition: transform 0.3s ease;}
+.album:hover img{transform:scale(1.05);}
+.tracklist{display:flex;flex-direction:column;background:#222;margin-top:10px;border-radius:8px;max-height:0;overflow:hidden;transition:max-height 0.5s ease;}
+.track{padding:12px 15px;border-bottom:1px solid #333;cursor:pointer;transition:0.2s;}
+.track:last-child{border-bottom:none;}
+.track:hover{background:#333;}
+.track.active{color:#1DB954;font-weight:600;}
+.player{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);width:95%;max-width:400px;background:#181818;padding:12px 15px;display:flex;flex-direction:row;align-items:center;border-radius:15px;box-shadow:0 10px 30px rgba(0,0,0,0.6);z-index:100;gap:10px;}
+.player img{width:50px;height:50px;border-radius:8px;object-fit:cover;}
+.player-info{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+#currentTrackInfo{text-overflow:ellipsis;white-space:nowrap;overflow:hidden;font-size:14px;margin-bottom:5px;}
+.controls{display:flex;gap:20px;justify-content:flex-start;align-items:center;margin-bottom:4px;}
+.controls span{font-size:22px;cursor:pointer;user-select:none;}
+.progress-container{width:100%;height:4px;background:#333;border-radius:2px;cursor:pointer;overflow:hidden;margin-top:4px;}
+.progress{height:100%;width:0%;background:#1DB954;border-radius:2px;transition:width 0.1s linear;}
+.volume-container{display:flex;justify-content:space-between;align-items:center;margin-top:5px;}
+.volume-container span{font-size:12px;color:#aaa;}
+.volume-slider{width:100%;margin-top:2px;}
+.modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.95);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.3s ease;z-index:200;}
+.modal.active{opacity:1;pointer-events:auto;}
+.modal img{max-width:80%;max-height:80%;border-radius:15px;box-shadow:0 10px 40px rgba(0,0,0,0.7);}
+.close-modal{position:absolute;top:20px;right:20px;font-size:30px;cursor:pointer;color:#fff;user-select:none;}
 </style>
 </head>
 <body>
 
 <div class="container">
+  <div id="albumGrid" class="album-grid"></div>
+</div>
 
-  <img id="cover" class="cover">
-  <h1 id="albumTitle"></h1>
-  <h2 id="albumArtist"></h2>
+<div id="modal" class="modal">
+  <span class="close-modal" onclick="closeModal()">×</span>
+  <img id="modalCover" src="" alt="">
+</div>
 
-  <div id="trackList"></div>
-
-  <div class="player">
+<div class="player">
+  <img id="playerCover" src="" alt="Portada">
+  <div class="player-info">
+    <div id="currentTrackInfo">No hay reproducción</div>
     <div class="controls">
       <span onclick="prevTrack()">⏮</span>
       <span onclick="togglePlay()" id="playBtn">▶</span>
       <span onclick="nextTrack()">⏭</span>
     </div>
-
     <div class="progress-container" onclick="setProgress(event)">
       <div class="progress" id="progress"></div>
     </div>
-
-    <div class="time">
-      <span id="currentTime">0:00</span>
-      <span id="duration">0:00</span>
+    <div class="volume-container">
+      <span>Volumen</span>
+      <span id="volumePercent">70%</span>
     </div>
+    <input type="range" id="volumeSlider" class="volume-slider" min="0" max="1" step="0.01" value="0.7">
   </div>
-
 </div>
 
 <script>
+// Catalogo
+const catalog=[
+  {titulo:"PRIVATE SPOT VOL.1",artista:"LIT PAPI",portada:"https://www.dropbox.com/s/abc123/afterhours.jpg?raw=1",canciones:[{nombre:"03-BORI'",archivo:"https://www.dropbox.com/scl/fi/6patnwzdrrtbm3bgkt8l2/03-LIT-PAPI-03-LIT-PAPI-BORI.mp3?rlkey=58rbbr3ug0zerzqo2wif7ss2a&st=alhx8q4h&raw=1"},{nombre:"04-VISIONES",archivo:"https://www.dropbox.com/s/abc123/saveyourtears.mp3?raw=1"}]},
+  {titulo:"Random Access Memories",artista:"Daft Punk",portada:"https://www.dropbox.com/s/def456/ram.jpg?raw=1",canciones:[{nombre:"Get Lucky",archivo:"https://www.dropbox.com/s/def456/getlucky.mp3?raw=1"},{nombre:"Instant Crush",archivo:"https://www.dropbox.com/s/def456/instantcrush.mp3?raw=1"}]}
+];
 
-const catalog = {
-  titulo: "DEN",
-  artista: "Priv
+const albumGrid=document.getElementById("albumGrid");
+const audio=new Audio();
+const playBtn=document.getElementById("playBtn");
+const trackInfo=document.getElementById("currentTrackInfo");
+const modal=document.getElementById("modal");
+const modalCover=document.getElementById("modalCover");
+const playerCover=document.getElementById("playerCover");
+
+// Volumen
+const volumeSlider = document.getElementById("volumeSlider");
+const volumePercent = document.getElementById("volumePercent");
+audio.volume = volumeSlider.value;
+if(localStorage.getItem("playerVolume")){
+  audio.volume = localStorage.getItem("playerVolume");
+  volumeSlider.value = audio.volume;
+  volumePercent.textContent = Math.round(audio.volume * 100) + "%";
+}
+volumeSlider.addEventListener("input", () => {
+  audio.volume = volumeSlider.value;
+  volumePercent.textContent = Math.round(volumeSlider.value * 100) + "%";
+  localStorage.setItem("playerVolume", audio.volume);
+});
+
+let currentAlbumIndex=null;
+let currentTrackIndex=0;
+
+// Render álbumes
+catalog.forEach((album,index)=>{
+  const div=document.createElement("div");
+  div.classList.add("album");
+  div.innerHTML=`<img src="${album.portada}" alt="${album.titulo}">`;
+  const tracklist=document.createElement("div");
+  tracklist.classList.add("tracklist");
+  album.canciones.forEach((track,tIndex)=>{
+    const tDiv=document.createElement("div");
+    tDiv.classList.add("track");
+    tDiv.textContent=track.nombre;
+    tDiv.onclick=(e)=>{e.stopPropagation(); loadTrack(index,tIndex);}
+    tracklist.appendChild(tDiv);
+  });
+  div.onclick=()=>{
+    const isOpen=tracklist.style.maxHeight&&tracklist.style.maxHeight!=="0px";
+    document.querySelectorAll(".tracklist").forEach(tl=>tl.style.maxHeight="0");
+    if(!isOpen) tracklist.style.maxHeight=tracklist.scrollHeight+"px";
+  };
+  div.ondblclick=()=>{ openModal(album.portada); }
+  div.appendChild(tracklist);
+  albumGrid.appendChild(div);
+});
+
+// Reproductor
+function loadTrack(albumIndex,trackIndex){
+  currentAlbumIndex=albumIndex;
+  currentTrackIndex=trackIndex;
+  audio.src=catalog[albumIndex].canciones[trackIndex].archivo;
+  audio.play();
+  playBtn.textContent="⏸";
+  updateTrackInfo();
+  highlightTrack();
+  autoOpenTracklist();
+  updatePlayerCover(catalog[albumIndex].portada);
+}
+
+function updateTrackInfo(){
+  if(currentAlbumIndex!==null){
+    const album=catalog[currentAlbumIndex];
+    const track=album.canciones[currentTrackIndex];
+    trackInfo.textContent=`${track.nombre} — ${album.titulo}`;
+  }else trackInfo.textContent="No hay reproducción";
+}
+
+function togglePlay(){if(!audio.src)return;if(audio.paused){audio.play();playBtn.textContent="⏸";}else{audio.pause();playBtn.textContent="▶";}}
+function nextTrack(){if(currentAlbumIndex===null)return;currentTrackIndex=(currentTrackIndex+1)%catalog[currentAlbumIndex].canciones.length;loadTrack(currentAlbumIndex,currentTrackIndex);}
+function prevTrack(){if(currentAlbumIndex===null)return;currentTrackIndex=(currentTrackIndex-1+catalog[currentAlbumIndex].canciones.length)%catalog[currentAlbumIndex].canciones.length;loadTrack(currentAlbumIndex,currentTrackIndex);}
+function highlightTrack(){document.querySelectorAll(".track").forEach(t=>t.classList.remove("active"));if(currentAlbumIndex!==null){const albumDiv=albumGrid.children[currentAlbumIndex];const tracklist=albumDiv.querySelectorAll(".track");tracklist[currentTrackIndex].classList.add("active");}}
+function autoOpenTracklist(){document.querySelectorAll(".tracklist").forEach(tl=>tl.style.maxHeight="0");if(currentAlbumIndex!==null){const albumDiv=albumGrid.children[currentAlbumIndex];const tracklist=albumDiv.querySelector(".tracklist");tracklist.style.maxHeight=tracklist.scrollHeight+"px";}}
+function updatePlayerCover(url){playerCover.src=url;}
+
+// Barra progreso
+audio.addEventListener("timeupdate",()=>{
+  const percent=(audio.currentTime/audio.duration)*100;
+  document.getElementById("progress").style.width=percent+"%";
+});
+function setProgress(e){audio.currentTime=(e.offsetX/e.currentTarget.clientWidth)*audio.duration;}
+audio.addEventListener("ended",nextTrack);
+
+// Modal portada
+function openModal(url){modalCover.src=url; modal.classList.add("active");}
+function closeModal(){modal.classList.remove("active");}
+
+// Swipe móvil
+let startX=0;
+document.addEventListener("touchstart",(e)=>{startX=e.touches[0].clientX;});
+document.addEventListener("touchend",(e)=>{
+  const endX=e.changedTouches[0].clientX;
+  if(endX-startX>50) prevTrack();
+  else if(startX-endX>50) nextTrack();
+});
+</script>
+</body>
+</html>
