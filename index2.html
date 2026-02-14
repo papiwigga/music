@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Private Demo</title>
+
+<style>
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+  font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;
+}
+
+body{
+  background:#000;
+  color:#fff;
+  display:flex;
+  justify-content:center;
+  padding:60px 20px;
+}
+
+.container{
+  width:100%;
+  max-width:420px;
+}
+
+.cover{
+  width:100%;
+  aspect-ratio:1;
+  object-fit:cover;
+  margin-bottom:40px;
+}
+
+h1{
+  font-size:20px;
+  font-weight:500;
+  margin-bottom:6px;
+}
+
+h2{
+  font-size:13px;
+  font-weight:400;
+  color:#777;
+  margin-bottom:35px;
+}
+
+.track{
+  display:flex;
+  justify-content:space-between;
+  padding:16px 0;
+  border-bottom:1px solid #111;
+  cursor:pointer;
+  font-size:14px;
+  transition:0.2s ease;
+}
+
+.track:hover{
+  opacity:0.6;
+}
+
+.track.active{
+  color:#999;
+}
+
+.player{
+  margin-top:50px;
+}
+
+.controls{
+  display:flex;
+  justify-content:center;
+  gap:50px;
+  font-size:18px;
+  cursor:pointer;
+}
+
+.progress-container{
+  width:100%;
+  height:1px;
+  background:#222;
+  margin:25px 0;
+  cursor:pointer;
+}
+
+.progress{
+  height:100%;
+  width:0%;
+  background:#fff;
+}
+
+.time{
+  display:flex;
+  justify-content:space-between;
+  font-size:11px;
+  color:#555;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <img id="cover" class="cover">
+  <h1 id="albumTitle"></h1>
+  <h2 id="albumArtist"></h2>
+
+  <div id="trackList"></div>
+
+  <div class="player">
+    <div class="controls">
+      <span onclick="prevTrack()">⏮</span>
+      <span onclick="togglePlay()" id="playBtn">▶</span>
+      <span onclick="nextTrack()">⏭</span>
+    </div>
+
+    <div class="progress-container" onclick="setProgress(event)">
+      <div class="progress" id="progress"></div>
+    </div>
+
+    <div class="time">
+      <span id="currentTime">0:00</span>
+      <span id="duration">0:00</span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+
+const catalog = {
+  titulo: "DEN",
+  artista: "Priv
