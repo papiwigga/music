@@ -77,6 +77,7 @@ public:
             delay[(size_t) c].prepare (latencySamples);
 
         mixCoeff = 1.0f - std::exp (-1.0f / (0.02f * (float) sr));
+        voicedCoeff = 1.0f - std::exp (-1.0f / (0.006f * (float) sr));   // ~6 ms crossfade
         reset();
     }
 
@@ -96,6 +97,7 @@ public:
         hopCount = 0;
         state = {};
         mixCur = mixTarget;
+        voicedCur = 0.0f;
     }
 
     void setParams (const PitchCorrector::Params& p, float mix)
@@ -137,12 +139,17 @@ public:
 
             mixCur += (mixTarget - mixCur) * mixCoeff;
 
+            // Consonants, breaths and silence are passed through untouched (delayed dry signal);
+            // only clearly pitched sound goes through the shifter. Smooth crossfade between both.
+            voicedCur += ((state.voiced ? 1.0f : 0.0f) - voicedCur) * voicedCoeff;
+            const float wetAmount = mixCur * voicedCur;
+
             for (int c = 0; c < numCh; ++c)
             {
                 const float x = in[c][n];
                 const float wet = shifter[(size_t) c].process (x, state.period, state.ratio);
                 const float dry = delay[(size_t) c].process (x);
-                out[c][n] = dry + (wet - dry) * mixCur;
+                out[c][n] = dry + (wet - dry) * wetAmount;
             }
         }
     }
@@ -153,6 +160,7 @@ private:
     int numCh = 1, decim = 1, hop = 176, latencySamples = 0;
     int decimCount = 0, hopCount = 0;
     float decimAcc = 0.0f, mixCur = 1.0f, mixTarget = 1.0f, mixCoeff = 0.001f;
+    float voicedCur = 0.0f, voicedCoeff = 0.01f;
 
     YinDetector detector;
     PitchCorrector corrector;

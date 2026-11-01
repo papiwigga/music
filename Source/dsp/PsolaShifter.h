@@ -49,8 +49,9 @@ public:
         anchored = false;
         markHead = markTail = 0;
         lastMarkPos = maxPeriod;
-        pushMark (lastMarkPos, defaultPeriod, 1.0f);
+        pushMark (lastMarkPos, defaultPeriod, 1.0f, (float) defaultPeriod);
         nextSynth = lastMarkPos;
+        nextSynthExact = (double) nextSynth;
     }
 
     /** x: input sample. periodSamples: current period estimate (0 if unvoiced).
@@ -61,9 +62,10 @@ public:
         ++writePos;
 
         const bool voiced = periodSamples > 0.0f;
-        int T = voiced ? (int) std::lround (periodSamples) : defaultPeriod;
-        T = std::clamp (T, minPeriod, maxPeriod);
+        const float Tf = std::clamp (voiced ? periodSamples : (float) defaultPeriod, (float) minPeriod, (float) maxPeriod);
+        const int T = (int) std::lround (Tf);
         const float r = std::clamp (ratio, 0.5f, 2.0f);
+        const float spacing = Tf / r;   // output pitch follows the (smoothed) target, not the jitter of each cycle
 
         // 1) Analysis: create marks as soon as enough input is available.
         for (;;)
@@ -71,7 +73,7 @@ public:
             const int64_t cand = lastMarkPos + T;
             if (writePos < cand + (3 * (int64_t) T) / 2 + 2)
                 break;
-            createMark (cand, T, r, voiced);
+            createMark (cand, T, r, spacing, voiced);
         }
 
         // 2) Synthesis: place every grain that can still touch the sample we emit now.
@@ -95,19 +97,20 @@ private:
     struct Mark
     {
         int64_t pos = 0;
-        int period = 0;
+        int period = 0;          // measured distance to the previous mark (sets the grain size)
         float ratio = 1.0f;
+        float spacing = 0.0f;    // wanted distance between output grains = smoothed period / ratio
     };
 
     static constexpr int markCap = 512;
 
     float in (int64_t p) const { return p < 0 ? 0.0f : inBuf[(size_t) (p & mask)]; }
 
-    void pushMark (int64_t pos, int period, float ratio)
+    void pushMark (int64_t pos, int period, float ratio, float spacing)
     {
         if (markHead - markTail >= markCap)
             ++markTail;
-        marks[(size_t) (markHead & (markCap - 1))] = { pos, period, ratio };
+        marks[(size_t) (markHead & (markCap - 1))] = { pos, period, ratio, spacing };
         ++markHead;
     }
 
@@ -118,7 +121,7 @@ private:
         (a pulse-like feature, which is where PSOLA grains should be centred). From then on,
         marks follow the waveform by cross-correlation with the previous period and are
         nudged onto the nearest local peak, so they cannot slowly drift away from it. */
-    void createMark (int64_t cand, int T, float ratio, bool voiced)
+    void createMark (int64_t cand, int T, float ratio, float spacing, bool voiced)
     {
         int bestD = 0;
 
@@ -169,7 +172,10 @@ private:
             if (voiced)
             {
                 const int centre = bestD;
-                const int snap = std::max (1, T / 16);
+#ifndef AFINA_SNAP_DIV
+#define AFINA_SNAP_DIV 16
+#endif
+                const int snap = AFINA_SNAP_DIV > 0 ? std::max (1, T / AFINA_SNAP_DIV) : 0;
                 float bestV = -1e30f;
                 for (int d = centre - snap; d <= centre + snap; ++d)
                 {
@@ -188,7 +194,7 @@ private:
         }
 
         const int64_t pos = cand + bestD;
-        pushMark (pos, (int) (pos - lastMarkPos), ratio);
+        pushMark (pos, (int) (pos - lastMarkPos), ratio, spacing);
         lastMarkPos = pos;
     }
 
@@ -208,7 +214,7 @@ private:
                 pick = b;
         }
 
-        const float Ts = (float) pick.period / pick.ratio;
+        const float Ts = pick.spacing;
         // Shifting up: narrower window so only two grains overlap at any point.
         const int P = std::min ({ pick.period, maxGrainHalf, std::max (minPeriod, (int) std::lround (Ts * 1.15f)) });
         const float invP = 3.14159265358979f / (float) P;
@@ -220,12 +226,14 @@ private:
             normBuf[idx] += w;
         }
 
-        nextSynth += std::max<int64_t> (1, std::llround (Ts));
+        nextSynthExact += std::max (1.0f, Ts);
+        nextSynth = std::llround (nextSynthExact);
     }
 
     double sr = 44100.0;
     int minPeriod = 44, maxPeriod = 551, defaultPeriod = 294, maxGrainHalf = 720, latencySamples = 0;
     int64_t mask = 0, writePos = 0, lastMarkPos = 0, nextSynth = 0;
+    double nextSynthExact = 0.0;
     int64_t markHead = 0, markTail = 0;
     bool anchored = false;
     std::array<Mark, markCap> marks {};

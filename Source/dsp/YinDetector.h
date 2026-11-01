@@ -29,12 +29,16 @@ public:
         linear.assign ((size_t) (window + tauMax), 0.0f);
         cmnd.assign ((size_t) tauMax + 1, 1.0f);
         writePos = 0;
+        prevF0 = 0.0f;
+        misses = 0;
     }
 
     void reset()
     {
         std::fill (ring.begin(), ring.end(), 0.0f);
         writePos = 0;
+        prevF0 = 0.0f;
+        misses = 0;
     }
 
     void push (float x)
@@ -46,7 +50,7 @@ public:
     /** Estimates f0 over the most recent samples.
         Returns the frequency in Hz, or 0 if the signal is silent / unvoiced.
         'clarity' is in [0,1]; higher means a more periodic signal. */
-    float detect (float& clarity, float margin = 0.07f, float silenceRms = 0.002f)
+    float detect (float& clarity, float margin = 0.1f, float silenceRms = 0.002f)
     {
         clarity = 0.0f;
         const int n = window + tauMax;
@@ -60,7 +64,7 @@ public:
         }
 
         if (std::sqrt (energy / n) < silenceRms)
-            return 0.0f;
+            return fail();
 
         // Difference function + cumulative mean normalised difference.
         const float* a = linear.data();
@@ -85,26 +89,39 @@ public:
         for (int tau = tauMin; tau < tauMax; ++tau)
             gmin = std::min (gmin, cmnd[(size_t) tau]);
         if (gmin > 0.3f)
-            return 0.0f;
+            return fail();
 
-        // First dip that is close to the global minimum, followed down to its local minimum.
-        // Taking the first dip prefers the shortest period (avoids sub-octave errors when
-        // every multiple of the period matches equally well); requiring it to be close to the
-        // global minimum avoids octave-up errors when the 2nd harmonic is very strong.
-        const float limit = gmin + margin;
+        // Candidates: every local minimum close to the global one.
+        // - Without history (start of a note): take the shortest period among the good ones.
+        //   That avoids sub-octave errors when 2T matches as well as T.
+        // - With history: pick the candidate with the best (match quality + distance to the
+        //   previous pitch). Real voices have cycle-to-cycle jitter that sometimes makes 2T look
+        //   better than T; the continuity term stops those octave jumps.
         int best = -1;
-        for (int tau = tauMin; tau < tauMax; ++tau)
+        float bestCost = 1e9f;
+        for (int tau = std::max (tauMin, 2); tau < tauMax - 1; ++tau)
         {
-            if (cmnd[(size_t) tau] <= limit)
+            const float c = cmnd[(size_t) tau];
+            if (! (c <= cmnd[(size_t) tau - 1] && c < cmnd[(size_t) tau + 1]) || c > gmin + 0.25f)
+                continue;
+
+            if (prevF0 > 0.0f)
             {
-                while (tau + 1 < tauMax && cmnd[(size_t) tau + 1] < cmnd[(size_t) tau])
-                    ++tau;
+                const float cost = c + 0.3f * std::fabs (std::log2 ((float) (sr / tau) / prevF0));
+                if (cost < bestCost)
+                {
+                    bestCost = cost;
+                    best = tau;
+                }
+            }
+            else if (c <= gmin + margin)
+            {
                 best = tau;
                 break;
             }
         }
         if (best < 0)
-            return 0.0f;
+            return fail();
 
         // Parabolic interpolation around the minimum.
         float tauF = (float) best;
@@ -119,10 +136,23 @@ public:
         }
 
         clarity = std::clamp (1.0f - cmnd[(size_t) best], 0.0f, 1.0f);
-        return (float) (sr / tauF);
+        const float f0 = (float) (sr / tauF);
+        prevF0 = f0;
+        misses = 0;
+        return f0;
     }
 
 private:
+    /** Unvoiced frame: forget the previous pitch after ~50 ms without a clear detection. */
+    float fail()
+    {
+        if (++misses > 12)
+            prevF0 = 0.0f;
+        return 0.0f;
+    }
+
+    float prevF0 = 0.0f;
+    int misses = 0;
     double sr = 44100.0;
     int tauMin = 0, tauMax = 0, window = 0;
     int64_t writePos = 0, mask = 0;

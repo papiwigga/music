@@ -5,11 +5,6 @@ namespace
 {
 const char* const kNoteNames[12] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
 
-bool isInCMajor (int pitchClass)
-{
-    return pitchClass == 0 || pitchClass == 2 || pitchClass == 4 || pitchClass == 5
-        || pitchClass == 7 || pitchClass == 9 || pitchClass == 11;
-}
 } // namespace
 
 const char* AfinaProcessor::noteName (int pitchClass)
@@ -53,7 +48,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout AfinaProcessor::createLayout
 
     for (int i = 0; i < 12; ++i)
         layout.add (std::make_unique<AudioParameterBool> (
-            ParameterID { "note" + String (i), 1 }, String ("Note ") + kNoteNames[i], isInCMajor (i)));
+            ParameterID { "note" + String (i), 1 }, String ("Note ") + kNoteNames[i], true));   // chromatic by default
 
     return layout;
 }
