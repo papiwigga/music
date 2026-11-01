@@ -36,6 +36,13 @@ La primera vez tarda unos 5-10 minutos. Resultado:
 
 Después, reescanea plugins en tu DAW.
 
+## Forma más fácil en tu PC: build.bat
+
+1. Instala **Visual Studio Community** (gratis) marcando la carga de trabajo *Desarrollo para el escritorio con C++*.
+2. Instala **Git for Windows** (git-scm.com, todo por defecto).
+3. Abre el menú Inicio, busca **Developer Command Prompt for VS**, ve a esta carpeta (`cd` + ruta) y ejecuta `build.bat`.
+4. Al terminar se abre la carpeta `dist` con `AfinaVST.vst3` y `AfinaVST.exe`.
+
 ## Alternativa sin instalar nada: que GitHub lo compile por ti (gratis)
 
 1. Crea una cuenta en github.com y un repositorio nuevo (puede ser privado).
